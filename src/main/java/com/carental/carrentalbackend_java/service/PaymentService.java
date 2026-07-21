@@ -14,9 +14,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -28,19 +26,11 @@ public class PaymentService {
     private final VehicleRepository vehicleRepository;
     private final CustomerRepository customerRepository;
 
-    public ApiResponse getAllPayments(int paymentId) {
+    // Get all payments — returns a List directly
+    public ApiResponse getAllPayments() {
         try {
-            List<Payment> payments;
-            if (paymentId != 0) {
-                Optional<Payment> payment = paymentRepository.findById(paymentId);
-                if (payment.isEmpty())
-                    return new ApiResponse(false, "Payment not found");
-                payments = List.of(payment.get());
-            } else {
-                payments = paymentRepository.findAllOrderedDesc();
-            }
+            List<Payment> payments = paymentRepository.findAllOrderedDesc();
 
-            // Populate customerName and vehicleName
             payments.forEach(p -> {
                 rentalRepository.findById(p.getRentalId()).ifPresent(r -> {
                     customerRepository.findById(r.getCustomerId())
@@ -52,20 +42,30 @@ public class PaymentService {
                 });
             });
 
-            if (payments.isEmpty())
-                return new ApiResponse(false, "No payments found");
+            return new ApiResponse(true, "Payment data found", payments);
+        } catch (Exception e) {
+            return new ApiResponse(false, e.getMessage());
+        }
+    }
 
-            // Calculate total revenue inline
-            BigDecimal totalRevenue = payments.stream()
-                    .filter(p -> "Completed".equals(p.getStatus()))
-                    .map(Payment::getAmount)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+    // Get single payment by ID
+    public ApiResponse getPaymentById(int paymentId) {
+        try {
+            Optional<Payment> payment = paymentRepository.findById(paymentId);
+            if (payment.isEmpty())
+                return new ApiResponse(false, "Payment not found");
 
-            Map<String, Object> data = new HashMap<>();
-            data.put("payments", payments);
-            data.put("totalRevenue", totalRevenue);
+            Payment p = payment.get();
+            rentalRepository.findById(p.getRentalId()).ifPresent(r -> {
+                customerRepository.findById(r.getCustomerId())
+                        .ifPresent(c -> p.setCustomerName(c.getFullName()));
+                vehicleRepository.findById(r.getVehicleId())
+                        .ifPresent(v -> p.setVehicleName(
+                                v.getMake() + " " + v.getModel() + " (" + v.getYear() + ")"
+                        ));
+            });
 
-            return new ApiResponse(true, "Payment data found", data);
+            return new ApiResponse(true, "Payment data found", p);
         } catch (Exception e) {
             return new ApiResponse(false, e.getMessage());
         }

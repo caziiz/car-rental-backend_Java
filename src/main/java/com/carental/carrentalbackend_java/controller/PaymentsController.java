@@ -17,13 +17,13 @@ public class PaymentsController {
 
     @GetMapping
     public ResponseEntity<ApiResponse> getAllPayments() {
-        ApiResponse result = paymentService.getAllPayments(0);
+        ApiResponse result = paymentService.getAllPayments();
         return result.getStatus() ? ResponseEntity.ok(result) : ResponseEntity.notFound().build();
     }
 
     @GetMapping("/{paymentId}")
     public ResponseEntity<ApiResponse> getPaymentById(@PathVariable int paymentId) {
-        ApiResponse result = paymentService.getAllPayments(paymentId);
+        ApiResponse result = paymentService.getPaymentById(paymentId);
         return result.getStatus() ? ResponseEntity.ok(result) : ResponseEntity.notFound().build();
     }
 
