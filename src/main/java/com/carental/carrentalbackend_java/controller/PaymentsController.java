@@ -21,12 +21,6 @@ public class PaymentsController {
         return result.getStatus() ? ResponseEntity.ok(result) : ResponseEntity.notFound().build();
     }
 
-    @GetMapping("/revenue")
-    public ResponseEntity<ApiResponse> getTotalRevenue() {
-        ApiResponse result = paymentService.getTotalRevenue();
-        return result.getStatus() ? ResponseEntity.ok(result) : ResponseEntity.badRequest().body(result);
-    }
-
     @GetMapping("/{paymentId}")
     public ResponseEntity<ApiResponse> getPaymentById(@PathVariable int paymentId) {
         ApiResponse result = paymentService.getAllPayments(paymentId);

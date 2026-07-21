@@ -2,7 +2,6 @@ package com.carental.carrentalbackend_java.service;
 
 import com.carental.carrentalbackend_java.dto.response.ApiResponse;
 import com.carental.carrentalbackend_java.entity.Payment;
-import com.carental.carrentalbackend_java.entity.Rental;
 import com.carental.carrentalbackend_java.repository.CustomerRepository;
 import com.carental.carrentalbackend_java.repository.PaymentRepository;
 import com.carental.carrentalbackend_java.repository.RentalRepository;
@@ -15,7 +14,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -36,10 +37,7 @@ public class PaymentService {
                     return new ApiResponse(false, "Payment not found");
                 payments = List.of(payment.get());
             } else {
-                payments = paymentRepository.findAll()
-                        .stream()
-                        .sorted((a, b) -> b.getPaymentId() - a.getPaymentId())
-                        .toList();
+                payments = paymentRepository.findAllOrderedDesc();
             }
 
             // Populate customerName and vehicleName
@@ -55,9 +53,19 @@ public class PaymentService {
             });
 
             if (payments.isEmpty())
-                return new ApiResponse(false, "Payment not found");
+                return new ApiResponse(false, "No payments found");
 
-            return new ApiResponse(true, "Payment data found", payments);
+            // Calculate total revenue inline
+            BigDecimal totalRevenue = payments.stream()
+                    .filter(p -> "Completed".equals(p.getStatus()))
+                    .map(Payment::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            Map<String, Object> data = new HashMap<>();
+            data.put("payments", payments);
+            data.put("totalRevenue", totalRevenue);
+
+            return new ApiResponse(true, "Payment data found", data);
         } catch (Exception e) {
             return new ApiResponse(false, e.getMessage());
         }
@@ -69,7 +77,6 @@ public class PaymentService {
             p.setPaymentDate(LocalDateTime.now());
             paymentRepository.save(p);
 
-            // If Completed, auto-return the rental and free the vehicle
             if ("Completed".equals(p.getStatus())) {
                 rentalRepository.findById(p.getRentalId()).ifPresent(rental -> {
                     LocalDate today = LocalDate.now();
@@ -116,18 +123,6 @@ public class PaymentService {
                 return new ApiResponse(false, "Payment not found");
             paymentRepository.deleteById(paymentId);
             return new ApiResponse(true, "Payment deleted successfully");
-        } catch (Exception e) {
-            return new ApiResponse(false, e.getMessage());
-        }
-    }
-
-    public ApiResponse getTotalRevenue() {
-        try {
-            BigDecimal total = paymentRepository.findByStatus("Completed")
-                    .stream()
-                    .map(Payment::getAmount)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            return new ApiResponse(true, "Total revenue calculated", total);
         } catch (Exception e) {
             return new ApiResponse(false, e.getMessage());
         }
